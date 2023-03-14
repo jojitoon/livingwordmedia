@@ -7,7 +7,11 @@ import {useNavigation} from '@react-navigation/native';
 import routes from '../routes/routes';
 import he from 'he';
 
-const AlbumCard = (props: AlbumProp) => {
+interface AlbumCardProps extends AlbumProp {
+  defaultImage?: string;
+}
+
+const AlbumCard = (props: AlbumCardProps) => {
   const navigation = useNavigation<any>();
   const width = Dimensions.get('window').width;
   const boxWidth = width / 2;
@@ -30,7 +34,7 @@ const AlbumCard = (props: AlbumProp) => {
         justifyContent="center">
         <FastImage
           resizeMode={FastImage.resizeMode.cover}
-          source={{uri: props.imgUrl}}
+          source={{uri: props.imgUrl || props.defaultImage}}
           style={imageStyle}
         />
       </Box>

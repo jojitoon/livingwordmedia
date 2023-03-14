@@ -17,4 +17,5 @@ export default {
   BOOKS: 'books',
   EVENTS: 'events',
   CHURCHES: 'churches',
+  SONGS: 'songs',
 };

@@ -22,3 +22,19 @@ export const useSearchAlbums = (search: string) => {
     },
   );
 };
+
+export const useAllSongs = () => {
+  return useInfiniteQuery(
+    [QUERY_PATHS.SEARCH, 'all songs'],
+    ({pageParam}) => searchAlbum({search: 'in songs', page: pageParam}),
+    {
+      getNextPageParam: (lastPage, pages) => {
+        if (lastPage?.length < 50) {
+          return undefined;
+        }
+
+        return pages.length + 1;
+      },
+    },
+  );
+};

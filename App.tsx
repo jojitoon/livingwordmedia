@@ -14,6 +14,7 @@ import React, {useEffect, useState} from 'react';
 import MainNavigation from './src/routes';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {SetupService} from './src/services';
+import {LocalDataProvider} from './src/context/LocalDataContext';
 
 const queryClient = new QueryClient();
 
@@ -36,19 +37,21 @@ const App = () => {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <NativeBaseProvider theme={customTheme}>
-        <NavigationContainer>
-          {isPlayerReady ? (
-            <MainNavigation />
-          ) : (
-            <Center flex={1}>
-              <Spinner size="lg" />
-            </Center>
-          )}
-        </NavigationContainer>
-      </NativeBaseProvider>
-    </QueryClientProvider>
+    <LocalDataProvider>
+      <QueryClientProvider client={queryClient}>
+        <NativeBaseProvider theme={customTheme}>
+          <NavigationContainer>
+            {isPlayerReady ? (
+              <MainNavigation />
+            ) : (
+              <Center flex={1}>
+                <Spinner size="lg" />
+              </Center>
+            )}
+          </NavigationContainer>
+        </NativeBaseProvider>
+      </QueryClientProvider>
+    </LocalDataProvider>
   );
 };
 

@@ -7,8 +7,8 @@ import FastImage from 'react-native-fast-image';
 import he from 'he';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import TrackCard from '../components/TrackCard';
-import {generateTracks} from '../utils/common';
 import TrackPlayer from 'react-native-track-player';
+import {useGenerateTracks} from '../hooks/useGenerateTracks';
 
 const AlbumTracksScreen: React.FC<ScreenProps> = ({route}) => {
   const album = route.params as AlbumProp;
@@ -16,7 +16,7 @@ const AlbumTracksScreen: React.FC<ScreenProps> = ({route}) => {
   const boxSize = width - 100;
   const imageStyle = {width: '100%', height: '100%'};
 
-  const tracks = generateTracks(album);
+  const tracks = useGenerateTracks(album);
 
   const playAlbum = async () => {
     await TrackPlayer.reset();
@@ -36,7 +36,7 @@ const AlbumTracksScreen: React.FC<ScreenProps> = ({route}) => {
       back
       //  title="Album Tracks"
     >
-      <ScrollView>
+      <ScrollView showsVerticalScrollIndicator={false}>
         <Box w="100%" h={boxSize} alignItems="center">
           <Box w={boxSize} h={boxSize} bg="blue.100" shadow="9">
             <FastImage
@@ -73,7 +73,7 @@ const AlbumTracksScreen: React.FC<ScreenProps> = ({route}) => {
             <Icon as={Ionicons} name="heart-outline" size="30px" mr="20px" />
           </Row>
         </Row>
-        <Box py="20px">
+        <Box pt="20px" py="100px">
           {album.tracks?.map((track, index) => (
             <TrackCard
               key={index}
