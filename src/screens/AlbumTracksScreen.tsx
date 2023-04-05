@@ -31,6 +31,8 @@ const AlbumTracksScreen: React.FC<ScreenProps> = ({route}) => {
     TrackPlayer.play();
   };
 
+  const downloadAll = () => {};
+
   return (
     <BaseContainer
       back

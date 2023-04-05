@@ -1,20 +1,22 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {MMKV} from 'react-native-mmkv';
 
-export const storeDataInStorage = async (key: string, value: any) => {
+export const storage = new MMKV();
+
+export const storeDataInStorage = async (key: StorageKeys, value: any) => {
   try {
     if (typeof value === 'object') {
       value = JSON.stringify(value);
     }
-    await AsyncStorage.setItem(key, value);
+    storage.set(key, value);
   } catch (e) {
     // saving error
   }
 };
 
-export const getStorageData = async () => {
+export const getStorageData = (key: StorageKeys) => {
   try {
-    const value = await AsyncStorage.getItem('@storage_Key');
-    if (value !== null) {
+    const value = storage.getString(key);
+    if (value) {
       return parseString(value);
     }
 
@@ -32,3 +34,12 @@ const parseString = (str: string) => {
     return str;
   }
 };
+
+export enum StorageKeys {
+  FAVOURITES = 'favourites',
+  RECENTLY_PLAYED = 'recentlyPlayed',
+  PLAYLISTS = 'playlists',
+  PLAYLISTS_ORDER = 'playlistsOrder',
+  LOCAL = 'local',
+  SETTINGS = 'settings',
+}

@@ -2,14 +2,12 @@ import {
   Actionsheet,
   Box,
   ChevronDownIcon,
-  CloseIcon,
   Flex,
   Heading,
   Icon,
   Pressable,
   Progress,
   Row,
-  ScrollView,
   Spinner,
   Text,
   useColorModeValue,
@@ -17,14 +15,19 @@ import {
   useTheme,
 } from 'native-base';
 import * as React from 'react';
-import {Dimensions, StyleSheet} from 'react-native';
+import {
+  ActivityIndicator,
+  Dimensions,
+  Platform,
+  StyleSheet,
+} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import TrackPlayer, {
-  Event,
+  // Event,
   State,
   usePlaybackState,
   useProgress,
-  useTrackPlayerEvents,
+  // useTrackPlayerEvents,
 } from 'react-native-track-player';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import FastImage from 'react-native-fast-image';
@@ -32,9 +35,21 @@ import he from 'he';
 import {Slider} from '@miblanchard/react-native-slider';
 import {useCurrentTrack} from '../hooks/useCurrentTrack';
 import {useDebouncedValue} from '../hooks/useDebouncedValue';
+import RNBackgroundDownloader, {
+  DownloadTask,
+} from '@kesha-antonov/react-native-background-downloader';
+import {useLocalData} from '../context/LocalDataContext';
+import {pickOutName} from '../utils/common';
+import CircularProgress from 'react-native-circular-progress-indicator';
 
 const TrackPlayerBox = () => {
   const theme = useTheme();
+  const {
+    addToLocal,
+    addToFavorite,
+    removeFromFavorite,
+    state: {local, liked},
+  } = useLocalData();
   const {track} = useCurrentTrack();
   const playerState = usePlaybackState();
   const isPaused = playerState === State.Paused || playerState === State.Ready;
@@ -46,13 +61,129 @@ const TrackPlayerBox = () => {
   // const boxHeight = windowSize.height;
   const width = windowSize.width;
   const boxSize = width - 100;
-
+  const [isDownloading, setIsDownloading] = React.useState(false);
+  const [downloadProgress, setDownloadProgress] = React.useState(0);
   const isLoading = useDebouncedValue(
     playerState === State.Connecting || playerState === State.Buffering,
     250,
   );
 
+  const isFavourite = React.useMemo(() => {
+    if (!track) {
+      return false;
+    }
+    return !!liked[track.url];
+  }, [liked, track]);
+
+  const isAlreadyDownloaded = React.useMemo(() => {
+    if (!track) {
+      return false;
+    }
+    return track.isLocal || !!local[track.url];
+  }, [local, track]);
+
+  console.log({
+    isFavourite,
+    isDownloading,
+    isAlreadyDownloaded,
+    downloadProgress,
+  });
+
   const {isOpen, onOpen, onClose} = useDisclose();
+
+  const downloadItemRef = React.useRef<DownloadTask | null>(null);
+
+  const pauseDownload = () => {
+    if (downloadItemRef.current) {
+      downloadItemRef.current.pause();
+      setIsDownloading(false);
+    }
+  };
+
+  const resumeDownload = () => {
+    if (downloadItemRef.current) {
+      downloadItemRef.current.resume();
+      setIsDownloading(true);
+    }
+  };
+
+  const cancelDownload = () => {
+    if (downloadItemRef.current) {
+      downloadItemRef.current.stop();
+      setIsDownloading(false);
+      setDownloadProgress(0);
+      downloadItemRef.current = null;
+    }
+  };
+
+  const handleDownload = () => {
+    console.log('handleDownload');
+
+    if (!track) {
+      return;
+    }
+
+    const newUrl = `${
+      RNBackgroundDownloader.directories.documents
+    }/${pickOutName(track.url as string)}`;
+
+    const download = RNBackgroundDownloader.download({
+      id: track.url as string,
+      url: track.url as string,
+      destination: newUrl,
+    }).begin(expectedBytes => {
+      setIsDownloading(true);
+      console.log(`Going to download ${expectedBytes} bytes!`);
+    });
+
+    downloadItemRef.current = download;
+
+    download.progress(percent => {
+      console.log(`Downloaded: ${percent * 100}%`);
+      setDownloadProgress(percent * 100);
+    });
+
+    download.done(() => {
+      addToLocal({
+        ...track,
+        url: newUrl,
+        id: track.url,
+        isLocal: true,
+      });
+      console.log('Download is done!');
+      setDownloadProgress(0);
+      setIsDownloading(false);
+      downloadItemRef.current = null;
+      if (Platform.OS === 'ios') {
+        RNBackgroundDownloader.completeHandler(download.id);
+      }
+    });
+
+    download.error(error => {
+      console.log(
+        'Download canceled due to error: ',
+        error,
+        error.code,
+        error.message,
+      );
+      setDownloadProgress(0);
+      setIsDownloading(false);
+      downloadItemRef.current = null;
+    });
+  };
+
+  const manageDownload = () => {
+    console.log(downloadItemRef.current);
+
+    if (!downloadItemRef.current) {
+      handleDownload();
+      return;
+    } else if (isDownloading) {
+      pauseDownload();
+    } else {
+      resumeDownload();
+    }
+  };
 
   // const fetchInitialTrack = async () => {
   //   const currentTrack = await TrackPlayer.getCurrentTrack();
@@ -95,6 +226,20 @@ const TrackPlayerBox = () => {
     theme.colors.gray[200],
     theme.colors.gray[500],
   );
+
+  const handleFavourite = () => {
+    if (!track) {
+      return;
+    }
+    if (isFavourite) {
+      removeFromFavorite(track.url);
+    } else {
+      addToFavorite({
+        ...track,
+        id: track.url,
+      });
+    }
+  };
 
   return isReady ? (
     <Pressable
@@ -259,19 +404,31 @@ const TrackPlayerBox = () => {
               </Row>
             </Box>
             <Row mt="20px" alignItems="center" justifyContent="space-around">
+              <Pressable onPress={manageDownload}>
+                {isAlreadyDownloaded ? null : isDownloading ? (
+                  <CircularProgress
+                    value={downloadProgress}
+                    radius={18}
+                    activeStrokeWidth={2}
+                    inActiveStrokeWidth={4}
+                    valueSuffix={'%'}
+                    progressValueStyle={{fontSize: 8}}
+                  />
+                ) : (
+                  <Icon
+                    as={Ionicons}
+                    name="download"
+                    size="30px"
+                    // color="gray.900"
+                  />
+                )}
+              </Pressable>
               <Icon
                 as={Ionicons}
-                name="download"
+                name={`heart${isFavourite ? '' : '-outline'}`}
                 size="30px"
-                // color="gray.900"
-                // onPress={handleNext}
-              />
-              <Icon
-                as={Ionicons}
-                name="heart-outline"
-                size="30px"
-                // color="gray.900"
-                // onPress={handleNext}
+                color={isFavourite ? 'red.500' : 'gray.500'}
+                onPress={handleFavourite}
               />
               {/* <Icon
                   as={Ionicons}

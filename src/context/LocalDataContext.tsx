@@ -1,6 +1,16 @@
-import React, {createContext, useCallback, useContext, useMemo} from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+} from 'react';
 import {AlbumProp} from '../types';
-import {storeDataInStorage} from '../utils/storage';
+import {
+  getStorageData,
+  StorageKeys,
+  storeDataInStorage,
+} from '../utils/storage';
 
 enum ActionType {
   SET_LOCAL = 'setLocal',
@@ -14,6 +24,7 @@ enum ActionType {
   REMOVE_FROM_HISTORY = 'removeFromHistory',
   SET_LAST_PLAYED = 'setLastPlayed',
   SET_LAST_PLAYED_ALBUM = 'setLastPlayedAlbum',
+  SET_LIKED = 'setLiked',
 }
 
 type Action = {
@@ -34,7 +45,7 @@ export interface LocalData {
 }
 
 const initialLocalData: LocalData = {
-  liked: [],
+  liked: {},
   local: {},
   playlists: [],
   history: [],
@@ -45,6 +56,8 @@ interface LocalDataContextProps {
   state: LocalData;
   dispatch: Dispatch;
   addToLocal: (data: any) => void;
+  removeFromFavorite: (data: any) => void;
+  addToFavorite: (data: any) => void;
 }
 export const LocalDataContext = createContext<
   LocalDataContextProps | undefined
@@ -68,6 +81,11 @@ const localDataReducer = (state: LocalData, action: Action) => {
         local: Object.keys(state.local),
       };
 
+    case ActionType.SET_LIKED:
+      return {
+        ...state,
+        liked: action.payload,
+      };
     case ActionType.ADD_TO_LIKED:
       return {
         ...state,
@@ -127,11 +145,13 @@ export const LocalDataProvider = ({children}: ProviderProps) => {
     initialLocalData,
   );
 
+  console.log({state});
+
   const addToLocal = useCallback(
     (data: any) => {
       const newLocal = {...state.local, [data.id]: data};
       dispatch({type: ActionType.SET_LOCAL, payload: newLocal});
-      storeDataInStorage('local', newLocal);
+      storeDataInStorage(StorageKeys.LOCAL, newLocal);
     },
     [state.local],
   );
@@ -142,15 +162,57 @@ export const LocalDataProvider = ({children}: ProviderProps) => {
       delete newLocal[data];
 
       dispatch({type: ActionType.SET_LOCAL, payload: newLocal});
-      storeDataInStorage('local', newLocal);
+      storeDataInStorage(StorageKeys.LOCAL, newLocal);
     },
     [state.local],
   );
 
-  const value = useMemo(
-    () => ({state, dispatch, addToLocal, removeFromLocal}),
-    [addToLocal, removeFromLocal, state],
+  const addToFavorite = useCallback(
+    (data: any) => {
+      const newLiked = {...state.liked, [data.id]: data};
+      console.log({newLiked});
+
+      dispatch({type: ActionType.SET_LIKED, payload: newLiked});
+      storeDataInStorage(StorageKeys.FAVOURITES, newLiked);
+    },
+    [state.liked],
   );
+
+  const removeFromFavorite = useCallback(
+    (data: any) => {
+      const newLiked = {...state.liked};
+      delete newLiked[data];
+      dispatch({type: ActionType.SET_LIKED, payload: newLiked});
+      storeDataInStorage(StorageKeys.FAVOURITES, newLiked);
+    },
+    [state.liked],
+  );
+
+  const value = useMemo(
+    () => ({
+      state,
+      dispatch,
+      addToLocal,
+      removeFromLocal,
+      addToFavorite,
+      removeFromFavorite,
+    }),
+    [addToLocal, removeFromLocal, state, addToFavorite, removeFromFavorite],
+  );
+
+  useEffect(() => {
+    const newLocal = getStorageData(StorageKeys.LOCAL);
+
+    if (newLocal) {
+      dispatch({type: ActionType.SET_LOCAL, payload: newLocal});
+    }
+
+    const newLiked = getStorageData(StorageKeys.FAVOURITES);
+
+    if (newLiked) {
+      dispatch({type: ActionType.SET_LIKED, payload: newLiked});
+    }
+  }, []);
 
   return (
     <LocalDataContext.Provider value={value}>

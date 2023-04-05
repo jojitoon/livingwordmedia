@@ -1,5 +1,6 @@
 import {AlbumProp, SongProp} from '../types';
 import he from 'he';
+import TrackPlayer from 'react-native-track-player';
 
 export const getGreetings = () => {
   const date = new Date();
@@ -25,4 +26,18 @@ export const generateTrack = (song: SongProp, album: AlbumProp) => {
 
 export const generateTracks = (album: AlbumProp) => {
   return album.tracks.map(track => generateTrack(track, album));
+};
+
+export async function handleShuffle() {
+  let queue = await TrackPlayer.getQueue();
+  await TrackPlayer.reset();
+  queue.sort(() => Math.random() - 0.5);
+  await TrackPlayer.add(queue);
+
+  return queue;
+}
+
+export const pickOutName = (name: string) => {
+  const split = name.split('/');
+  return split[split.length - 1];
 };
